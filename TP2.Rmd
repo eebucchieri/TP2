@@ -1,0 +1,87 @@
+---
+title: "TP2"
+author: "Erica Bucchieri & Stephen Durbin"
+date: "4/21/2020"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+## R Markdown
+
+Import libraries and load data.
+
+```{r results = "hide", warning = FALSE, message = FALSE} 
+library(brglm)
+library(ROSE)
+```
+
+```{r}
+data <- read.csv("train.csv")
+
+nrow(data)
+data[data == -1] <- NA
+data <- na.omit(data)
+
+nrow(data)
+```
+
+Split data into train and test sets.
+
+```{r}
+train.index <- sample(nrow(data), size = nrow(data)*.8)
+
+train.data <- data[train.index, ]
+test.data <- data[-train.index, ]
+```
+
+Fit a logistic regression model using the train data, and make probabilistic predictions.
+
+```{r warning = FALSE}
+log.fit <- glm(target ~ . -id, data = train.data, family = binomial)
+
+log.pred <- predict(log.fit, newdata = test.data, type = c("response"))
+log.pred <- as.numeric(log.pred)
+
+mean(train.data$target)
+mean(log.pred)
+mean((log.pred - test.data$target)^2)
+hist(log.pred, breaks = 50)
+max(log.pred)
+```
+
+Create binary predictions and display confusion matrix.
+```{r}
+threshold <- (max(log.pred) - min(log.pred))/2
+
+log.pred.predictions <- rep(1, length(log.pred))
+log.pred.predictions[log.pred <= threshold] <- 0
+
+(confusion <- table(log.pred.predictions, test.data$target))
+(specificity <- confusion[4]/(confusion[3] + confusion[4]))
+(sensitivity <- confusion[1]/(confusion[1] + confusion[2]))
+(error <- (confusion[2] + confusion[3])/sum(confusion))
+```
+
+Try oversampling
+```{r}
+oversample <- ovun.sample(target ~ ., data = train.data, method = "over")
+
+over.fit <- glm(target ~ . -id, data = oversample$data, family = binomial)
+
+over.pred <- predict(over.fit, newdata = test.data, type = c("response"))
+hist(over.pred, breaks = 50)
+mean((over.pred - test.data$target)^2)
+
+over.pred.predictions <- rep(1, length(over.pred))
+over.pred.predictions[over.pred <= 0.5] <- 0
+
+(confusion <- table(over.pred.predictions, test.data$target))
+(specificity <- confusion[4]/(confusion[3] + confusion[4]))
+(sensitivity <- confusion[1]/(confusion[1] + confusion[2]))
+(error <- (confusion[2] + confusion[3])/sum(confusion))
+```
+
+Note that the `echo = FALSE` parameter was added to the code chunk to prevent printing of the R code that generated the plot.
